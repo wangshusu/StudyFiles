@@ -44,19 +44,19 @@
 
 1. 将需要使用的动态库copy到项目的源文件中
 
-![image-20230223185520803](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20230223185520803.png)
+![image-20230223185520803](https://bucketforago.oss-cn-shenzhen.aliyuncs.com/typora/image-20230223185520803.png)
 
 2.接下来修改
 
-![image-20230223185910930](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20230223185910930.png)
+![image-20230223185910930](https://bucketforago.oss-cn-shenzhen.aliyuncs.com/typora/image-20230223185910930.png)
 
 3. 包含当前*.so
 
-![image-20230223192052357](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20230223192052357.png)
+![image-20230223192052357](https://bucketforago.oss-cn-shenzhen.aliyuncs.com/typora/image-20230223192052357.png)
 
 
 
 4.到linux的工程文件中  使用ln -s链接库文件
 
-![image-20230223190106440](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20230223190106440.png)
+![image-20230223190106440](https://bucketforago.oss-cn-shenzhen.aliyuncs.com/typora/image-20230223190106440.png)
 
