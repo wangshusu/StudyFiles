@@ -1,68 +1,49 @@
-
+/*
+ * @FilePath: \undefinedd:\桌面\新建文件夹\StudyFiles\8.内核issue\get_process_exe_path.c
+ * @Brief: 
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <link.h>
 
-char *get_process_exe_path(pid_t pid) {
-    char maps_path[64];
+#define PATH_MAX 4096
+
+char *get_executable_path(int pid, char *path, size_t path_length) {
+    char maps_path[PATH_MAX];
+
+    // 构造 maps 文件路径
     snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", pid);
 
-    // 打开 /proc/<PID>/maps 文件
-    int fd = open(maps_path, O_RDONLY);
-    if (fd < 0) {
-        perror("open");
+    // 打开 maps 文件
+    FILE* fp = fopen(maps_path, "r");
+    if (fp == NULL) {
+        perror("fopen failed");
         return NULL;
     }
 
-    // 读取 /proc/<PID>/maps 文件的内容
-    char buf[4096];
-    ssize_t n = read(fd, buf, sizeof(buf) - 1);
-    if (n < 0) {
-        perror("read");
-        close(fd);
-        return NULL;
-    }
-    buf[n] = '\0';
-
-    // 在 /proc/<PID>/maps 文件中查找进程加载的共享库
-    char *pos = buf;
-    char *exe_path = NULL;
-    while ((pos = strstr(pos, " r-xp ")) != NULL) {
-        // 解析共享库的路径
-        char *end = strchr(pos, '\n');
-        if (end == NULL) {
-            end = buf + n;
-        }
-        char path[1024];
-        memset(path, 0, sizeof(path));
-        memcpy(path, pos + 7, end - pos - 7);
-        path[strlen(path) - 1] = '\0';
-
-        // 查找共享库的符号表，并从中解析出可执行文件的路径
-        void *handle = dlopen(path, RTLD_NOW);
-        if (handle != NULL) {
-            Dl_info info;
-            if (dladdr((void *)get_process_exe_path, &info) != 0) {
-                if (info.dli_fname != NULL) {
-                    exe_path = strdup(info.dli_fname);
+    // 解析 maps 文件中的可执行文件路径
+    char* line = NULL;
+    size_t line_size = 0;
+    ssize_t line_len;
+    char* exe_path = NULL;
+    while ((line_len = getline(&line, &line_size, fp)) != -1) {
+        if (strstr(line, " r-xp ") != NULL) {  // 可执行文件的映射区域
+            char* path_start = strchr(line, '/');
+            char* path_end = strchr(line, '\n');
+            if (path_start != NULL && path_end != NULL) {
+                *path_end = '\0';
+                if (strlen(path_start) < path_length) {
+                    strncpy(path, path_start, path_length);
+                    exe_path = realpath(path, NULL);
+                } else {
+                    fprintf(stderr, "Executable path too long\n");
                 }
+                break;
             }
-            dlclose(handle);
         }
-
-        if (exe_path != NULL) {
-            break;
-        }
-        pos = end;
     }
 
-    close(fd);
-
+    free(line);
+    fclose(fp);
     return exe_path;
 }
-
