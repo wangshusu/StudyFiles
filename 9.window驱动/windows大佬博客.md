@@ -71,7 +71,7 @@ windows9x时代，是VxD驱动，从NT的第一代开始到现在的Windows 10�
 
 ## 2. 简单的NT驱动
 
-一、驱动入口
+### 1. 驱动入口
 
 驱动程序的入口点是DriverEntry，此函数的原型是：
 
@@ -81,7 +81,7 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject,PUNICODE_STRING pRe
 
 返回值：返回内核状态码，STATUS_SUCCESS表示成功
 
-二、注册驱动卸载函数
+### 2. 注册驱动卸载函数
 
 在驱动入口中可以注册驱动卸载函数，如果不注册，驱动程序一旦加载就无法卸载（rootkit病毒、杀毒软件的驱动无法卸载除了hook卸载函数外也可以用这种方法阻止卸载）
 
@@ -93,17 +93,17 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject,PUNICODE_STRING pRe
 extern "C" VOID DriverUnload(PDRIVER_OBJECT pDriverObject)
 应该在这个函数中完成驱动程序的清理工作，以免内存泄露等问题。
 
-三、派遣函数
+### 3. 派遣函数
 
 派遣函数类似于win32应用程序的回调函数，只不过派遣函数的调用是并发的，因为调用派遣函数的线程不是固定的，win32程序的回调函数是在一个线程里工作的，是串行的。
 
 通过这些代码注册派遣函数：
 
 ```C++
-	pDriverObject->MajorFunction[IRP_MJ_CREATE] = DispatchRoutine;
-	pDriverObject->MajorFunction[IRP_MJ_CLOSE] = DispatchRoutine;
-	pDriverObject->MajorFunction[IRP_MJ_WRITE] = DispatchRoutine;
-	pDriverObject->MajorFunction[IRP_MJ_READ] = DispatchRoutine;
+pDriverObject->MajorFunction[IRP_MJ_CREATE] = DispatchRoutine;
+pDriverObject->MajorFunction[IRP_MJ_CLOSE] = DispatchRoutine;
+pDriverObject->MajorFunction[IRP_MJ_WRITE] = DispatchRoutine;
+pDriverObject->MajorFunction[IRP_MJ_READ] = DispatchRoutine;
 ```
 
 这里注册了创建、关闭、读、写四种类型的IRP的派遣函数。除了这四个以外，还有个非常常用的是IRP_MJ_DEVICE_CONTROL，应用程序调用DeviceIoControl时I/O管理器发送此IRP。
@@ -326,19 +326,15 @@ PVOID ExAllocatePool(
 );
 ```
 
-PoolType：指定的池内存分配的类型。请参阅 POOL_TYPE。
+* PoolType：指定的池内存分配的类型。请参阅 POOL_TYPE。
 
+    常用的有： `NonPagedPool` 从非分页内存池中分配虚拟内存 
 
+    ​					`PagedPool` 从分页内存池中分配虚拟内存 
 
-常用的有： 
+* NumberOfBytes：指定要分配的字节数。
 
-```C++
-NonPagedPool：从非分页内存池中分配虚拟内存 
-PagedPool：从分页内存池中分配虚拟内存 
-```
-
-NumberOfBytes：指定要分配的字节数。
-返回值：成功返回分配的内存指针，失败返回NULL。
+* PVOID：成功返回分配的内存指针，失败返回NULL。
 
 ```C++
 VOID ExFreePool(
@@ -843,7 +839,7 @@ typedef struct _IRP {
 
 暂时不解释各个成员的含义，因为现在说大家也不好理解，同时这篇博文侧重点在引人主题，是以思想为主，在接下来的几篇中，我们将围绕着处理IRP展开这些内容。
 
-另外，还有一种说法，认为IRP数据结构只是IRP（I/O请求数据包）的一部分，还有一个IO_STACK_LOCATION的东西，这个就是I/O堆栈的当前这一层，这个可以在派遣函数中使用IoGetCurrentIrpStackLocation函数得到它的指针。关于I/O堆栈，博主不想现在详细说，只是告诉大家处理IRP时一般都要得到这一层的指针，关于I/O堆栈的细节，博主打算以后在过滤驱动的那一些博文中说。
+另外，还有一种说法，认为IRP数据结构只是IRP（I/O请求数据包）的一部分，还有一个IO_STACK_LOCATION的东西，这个就是I/O堆栈的当前这一层，这个可以在派遣函数中使用`IoGetCurrentIrpStackLocation`函数得到它的指针。关于I/O堆栈，博主不想现在详细说，只是告诉大家处理IRP时一般都要得到这一层的指针，关于I/O堆栈的细节，博主打算以后在过滤驱动的那一些博文中说。
 
 暂时撇开如何处理IRP不谈，我们来说说派遣函数和IRP的关系。在Win32中，消息（MSG结构）有一个叫“窗口过程”（WndProc）的回调函数（CallBack Function）来处理，与之类似，在驱动开发中，IRP是在“派遣函数”或者叫“派遣例程”（DispatchRoutine）中处理的。
 
@@ -901,11 +897,13 @@ pIrp：要处理IRP的指针。
 
 在结束之前，我大致说一下下几篇博文的打算，下一篇讲一个Win32应用程序，这个应用程序呢，他将直接向磁盘这一个设备发出I/O请求，也就是绕过FileSystem直接读写磁盘上的扇区，这依旧是一个引子，让我们看看在R3下是如何向一个设备发出I/O请求的，之后就讲在驱动中如何处理这些I/O请求。﻿﻿
 
-## 7. 处理设备I/O控制函数DeviceIoControl
 
-在上面的两篇博文中，介绍了IRP与派遣函数，以及我们通过了一个例子“磁盘设备的绝对读写”来演示了在应用程序中是如何向一个设备发出I/O请求的。这篇博文将演示在驱动程序中处理一个非常简单的I/O请求——由DeviceIoControl这个Win32API经过一系列的调用，在内核中由I/O管理器构造生成的IRP_MJ_DEVICE_CONTROL这个IRP。
 
-我们先来看看DeviceIoControl这个函数的原型，此函数向某个打开的设备所在驱动程序的派遣函数中发送IRP：IRP_MJ_DEVICE_CONTROL。函数原型：
+## 8. 处理设备I/O控制函数DeviceIoControl
+
+在上面的两篇博文中，介绍了IRP与派遣函数，以及我们通过了一个例子“磁盘设备的绝对读写”来演示了在应用程序中是如何向一个设备发出I/O请求的。这篇博文将演示在驱动程序中处理一个非常简单的I/O请求——由`DeviceIoControl`这个Win32API经过一系列的调用，在内核中由I/O管理器构造生成的`IRP_MJ_DEVICE_CONTROL`这个IRP。
+
+我们先来看看`DeviceIoControl`这个函数的原型，此函数向某个打开的设备所在驱动程序的派遣函数中发送IRP：`IRP_MJ_DEVICE_CONTROL`。函数原型：
 
 ```C++
 BOOL WINAPI DeviceIoControl(
@@ -920,9 +918,9 @@ BOOL WINAPI DeviceIoControl(
 );
 ```
 
-hDevice：操作是要执行的设备句柄。使用 CreateFile 函数打开。
+* hDevice：操作是要执行的设备句柄。使用 CreateFile 函数打开。
 
-dwIoControlCode：操作的控制代码。
+* dwIoControlCode：操作的控制代码。
 
 需要注意的是，这个控制码不是随便定的，为了方便定义控制码，微软提供了一个CTL_CODE宏。控制码的结构如下：
 
@@ -930,39 +928,44 @@ dwIoControlCode：操作的控制代码。
 
 本例中博主定义了这样的一个ioctl控制码：
 
+```c
 #define IOCTL1 CTL_CODE(FILE_DEVICE_UNKNOWN,0x800,METHOD_BUFFERED,FILE_ANY_ACCESS)
+```
 
 来看看这个宏的使用方法：
 首先是这个宏的定义：
 
-#define CTL_CODE(DeviceType, Function, Method, Access) (
+```C
+define CTL_CODE(DeviceType, Function, Method, Access) (
   ((DeviceType) << 16) | ((Access) << 14) | ((Function) << 2) | (Method))
-DeviceType：设备类型，IoCreateDevice使用的设备类型，具体参加我之前的博文”NT驱动的基本结构“
+```
 
-Function：定义设备类别中的一个操作。0-2047和4096以后被微软保留，2048-4095（0x800-0xFFF）留给我们使用。
+* DeviceType：设备类型，IoCreateDevice使用的设备类型，具体参加我之前的博文”NT驱动的基本结构“
 
-Method：定义操作模式
+* Function：定义设备类别中的一个操作。0-2047和4096以后被微软保留，2048-4095（0x800-0xFFF）留给我们使用。
 
-METHOD_BUFFERED：缓冲区方法，本例使用这种方法
-METHOD_IN_DIRECT：直接输入
-METHOD_OUT_DIRECT：直接输出
-METHOD_NEITHER：两者都不，即其他方法
-对于 Windows 嵌入式设备，此字段将被忽略。始终使用 METHOD_BUFFERED。
+* Method：定义操作模式
 
-Access：一般用FILE_ANY_ACCESS，所有权限。
+    METHOD_BUFFERED：缓冲区方法，本例使用这种方法
+    METHOD_IN_DIRECT：直接输入
+    METHOD_OUT_DIRECT：直接输出
+    METHOD_NEITHER：两者都不，即其他方法
+    对于 Windows 嵌入式设备，此字段将被忽略。始终使用 METHOD_BUFFERED。
 
-lpInBuffer：（可选）指向输入缓冲区的指针。
+* Access：一般用FILE_ANY_ACCESS，所有权限。
 
-nInBufferSize：输入缓冲区以字节为单位的大小。
+* lpInBuffer：（可选）指向输入缓冲区的指针。
 
-lpOutBuffer：（可选）指向输出缓冲区的指针，
+* nInBufferSize：输入缓冲区以字节为单位的大小。
 
-nOutBufferSize：输出缓冲区以字节为单位的大小。
+* lpOutBuffer：（可选）指向输出缓冲区的指针，
 
-lpBytesReturned：（可选）指向接收“输出缓冲区中接收的数据的大小”的变量的指针。如果输出缓冲区太小，无法接收任何数据，则GetLastError返回ERROR_INSUFFICIENT_BUFFER，此时lpBytesReturned是零。如果输出缓冲区太小，不能容纳所有数据，但可以容纳一些条目，一些驱动可能将尽可能多的返回数据。在这种情况下，GetLastError返回ERROR_MORE_DATA，然后lpBytesReturned指示接收的数据量。应用程序可以指定一个新的起点再次调用DeviceIoControl。如果lpOverlapped是NULL，那么lpBytesReturned不能为 NULL。
+* nOutBufferSize：输出缓冲区以字节为单位的大小。
 
-lpOverlapped：（可选）OVERLAPPED结构的指针。如果打开hDevice时没有指定FILE_FLAG_OVERLAPPED标志，lpOverlapped将被忽略。如果打开 hDevice 时指定了FILE_FLAG_OVERLAPPED 标志，则作为异步操作执行。在这种情况下，lpOverlapped必须指向有效的重叠结构，并且必须包含事件对象的句柄。否则，该函数会失败。
-注：异步操作，为 DeviceIoControl 立即返回，并且当在操作完成时终止的事件对象的操作。
+* lpBytesReturned：（可选）指向接收“输出缓冲区中接收的数据的大小”的变量的指针。如果输出缓冲区太小，无法接收任何数据，则GetLastError返回ERROR_INSUFFICIENT_BUFFER，此时lpBytesReturned是零。如果输出缓冲区太小，不能容纳所有数据，但可以容纳一些条目，一些驱动可能将尽可能多的返回数据。在这种情况下，GetLastError返回ERROR_MORE_DATA，然后lpBytesReturned指示接收的数据量。应用程序可以指定一个新的起点再次调用DeviceIoControl。如果lpOverlapped是NULL，那么lpBytesReturned不能为 NULL。
+
+* lpOverlapped：（可选）OVERLAPPED结构的指针。如果打开hDevice时没有指定FILE_FLAG_OVERLAPPED标志，lpOverlapped将被忽略。如果打开 hDevice 时指定了FILE_FLAG_OVERLAPPED 标志，则作为异步操作执行。在这种情况下，lpOverlapped必须指向有效的重叠结构，并且必须包含事件对象的句柄。否则，该函数会失败。
+    注：异步操作，为 DeviceIoControl 立即返回，并且当在操作完成时终止的事件对象的操作。
 
 返回值：如果该操作成功完成，则返回值不为零。如果操作失败，或处于挂起状态，则返回值为零。若要获取扩展的错误信息，请调用GetLastError
 
@@ -1322,6 +1325,7 @@ extern "C" NTSTATUS DefDispatchRoutine(PDEVICE_OBJECT pDevObj, PIRP pIrp)
 	IoCompleteRequest(pIrp, IO_NO_INCREMENT);
 	return status;
 }
+
 extern "C" NTSTATUS WriteDispatchRoutine(PDEVICE_OBJECT pDevObj, PIRP pIrp)
 {
 	DbgPrint("WriteDispatchRoutine\r\n");
@@ -1331,13 +1335,13 @@ extern "C" NTSTATUS WriteDispatchRoutine(PDEVICE_OBJECT pDevObj, PIRP pIrp)
 	PDEVICE_EXTENSION pDevExt = (PDEVICE_EXTENSION)pDevObj->DeviceExtension;
  
 	//得到I/O堆栈的当前这一层，也就是IO_STACK_LOCATION结构的指针
-	PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(pIrp);
+	PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation();
  
 	ULONG WriteLength = stack->Parameters.Write.Length;//获取写入的长度
 	ULONG WriteOffset = (ULONG)stack->Parameters.Write.ByteOffset.QuadPart;//获取写入的偏移量
 	DbgPrint("WriteLength: %d\r\nWriteOffset: %d\r\n", WriteLength, WriteOffset);//输出相关信息
  
-	if (pIrp->MdlAddress == NULL){
+	if (pIrp->MdlAddress == NULL) { // 意味着当前的IRP请求不涉及内存数据传输，例如仅涉及控制命令或查询操作等
 		//MdlAddress不能为NULL，否则下面的操作会蓝屏，因此直接失败完成
 		pIrp->IoStatus.Information = 0;
 		status = STATUS_UNSUCCESSFUL;
