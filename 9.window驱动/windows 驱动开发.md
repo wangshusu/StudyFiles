@@ -10,6 +10,8 @@
 
 [如果找不到Driver看这里](https://blog.csdn.net/m0_48995611/article/details/112195497)
 
+[搭建双机调试环境]（[内核调试之双机调试环境的搭建 - J坚持C - 博客园 (cnblogs.com)](https://www.cnblogs.com/wf751620780/p/10357001.html)）
+
 > 编译设置
 
  1.创建好项目工程后需要删除
@@ -203,14 +205,6 @@ NTSTATUS HelloDDKDispatchRoutin(IN PDEVICE_OBJECT pDevObj, IN PIRP pIrp)
 	return status;
 }
 ```
-
-
-
-
-
-
-
-
 
 
 
